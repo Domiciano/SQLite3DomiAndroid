@@ -1,0 +1,3 @@
+rootProject.name='DatabaseTester'
+include ':app'
+include ':sqlite3domi'
