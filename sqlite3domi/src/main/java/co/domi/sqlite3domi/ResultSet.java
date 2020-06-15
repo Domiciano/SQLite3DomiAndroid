@@ -6,7 +6,7 @@ public class ResultSet {
     private String[][] data;
     private int pointer = -1;
 
-    public ResultSet(String[][] data){
+    ResultSet(String[][] data){
         this.data = data;
     }
 

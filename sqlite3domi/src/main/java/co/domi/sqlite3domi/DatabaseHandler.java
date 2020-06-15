@@ -12,6 +12,8 @@ public class DatabaseHandler {
     private static DatabaseHandler instance = null;
     private SQLiteOpenHelper connection;
     private Context context;
+    private String dbname;
+    private int version = -1;
 
     public static DatabaseHandler getInstance(){
         if(instance == null){
@@ -20,33 +22,28 @@ public class DatabaseHandler {
         return instance;
     }
 
+    public void selectDatabase(String dbname, int version){
+        this.dbname = dbname;
+        this.version = version;
+    }
+
     private DatabaseHandler() {
 
     }
 
     public void initialize(Context context){
         this.context = context;
-        connection = new SQLiteOpenHelper(this.context, DBConstants.DB_NAME, null, DBConstants.VERSION) {
-            @Override
-            public void onCreate(SQLiteDatabase db) {}
-            @Override
-            public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
-        };
-        verifyDBVersion(DBConstants.VERSION);
-        connection.close();
+        verifyDBVersion();
     }
 
-    private SQLiteDatabase openDatabase(){
-        connection = new SQLiteOpenHelper(this.context, DBConstants.DB_NAME, null, DBConstants.VERSION) {
-            @Override
-            public void onCreate(SQLiteDatabase db) {}
-            @Override
-            public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
-        };
-        return connection.getWritableDatabase();
-    }
 
-    private void verifyDBVersion(int version){
+
+    private void verifyDBVersion(){
+        if(version == -1){
+            Log.e(">>>SQLite", "Version is undefined");
+            return;
+        }
+
         create("CREATE TABLE IF NOT EXISTS db_version(id INTEGER PRIMARY KEY)");
         ResultSet results = query("SELECT * FROM db_version WHERE id = (SELECT MAX(id) FROM db_version)");
         if (results.next() ){
@@ -61,7 +58,7 @@ public class DatabaseHandler {
                 Log.e(">>>SQLite","Important warning! the version you try to access is no longer available. Current version is "+lastversion);
             }
         }else{
-            create("INSERT OR IGNORE INTO db_version(id) VALUES ({version})".replace("{version}",""+version));
+            internalExecute("INSERT OR IGNORE INTO db_version(id) VALUES ({version})".replace("{version}",""+version));
         }
 
     }
@@ -82,12 +79,41 @@ public class DatabaseHandler {
 
     }
 
+    private SQLiteDatabase openDatabase(){
+        if(dbname == null){
+            Log.e(">>>SQLite", "dbname is undefined");
+            return null;
+        }
+
+        connection = new SQLiteOpenHelper(this.context, dbname, null, version) {
+            @Override
+            public void onCreate(SQLiteDatabase db) {}
+            @Override
+            public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
+        };
+        return connection.getWritableDatabase();
+    }
+
+
+
     public void create(String sql){
         SQLiteDatabase db = openDatabase();
         try {
             db.execSQL(sql);
         }catch (SQLException ex){
             ex.printStackTrace();
+        }finally {
+            db.close();
+            connection.close();
+        }
+    }
+
+    private void internalExecute(String sql){
+        SQLiteDatabase db = openDatabase();
+        try {
+            db.execSQL(sql);
+        }catch (SQLException ex){
+            Log.e(">>>SQLite","ERROR: "+ex.getLocalizedMessage());
         }finally {
             db.close();
             connection.close();
